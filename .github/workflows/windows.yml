@@ -28,6 +28,9 @@ jobs:
           New-Item source -ItemType Directory | Out-Null
           tar -xzf corresponding-source.tar.gz -C source
           if ($LASTEXITCODE -ne 0) { throw 'Source extraction failed' }
+          Copy-Item windows-overrides/* source -Recurse -Force
+          tar -czf corresponding-source.tar.gz -C source .
+          if ($LASTEXITCODE -ne 0) { throw 'Matching source packaging failed' }
       - uses: actions/checkout@v4
         with:
           repository: microsoft/vcpkg
@@ -49,6 +52,12 @@ jobs:
           arch: win64_msvc2022_64
           modules: 'qtimageformats qtnetworkauth'
           cache: true
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/AppData/Local/vcpkg/archives
+            source/cmake/vcpkg/downloads
+          key: windows-x64-vcpkg-908da3a-v1
       - name: Prepare installer compiler
         run: |
           if (-not (Test-Path 'C:/Program Files (x86)/NSIS/makensis.exe')) {
@@ -84,6 +93,8 @@ jobs:
           path: |
             source/build-windows/Testing/Temporary/*
             source/build-windows/CMakeFiles/CMakeConfigureLog.yaml
+            source/build-windows/vcpkg-manifest-install.log
+            source/cmake/vcpkg/buildtrees/*/*.log
             ${{ runner.temp }}/emberpvp-smoke/**
             ${{ runner.temp }}/emberpvp-installed-smoke/**
           if-no-files-found: ignore
