@@ -82,7 +82,7 @@ jobs:
         run: ./source/packaging/windows/package.ps1 -SourceArchive "$pwd/corresponding-source.tar.gz"
       - name: Test per-user installer
         run: |
-          $Destination="$env:RUNNER_TEMP/emberpvp-installed"
+          $Destination=Join-Path $env:RUNNER_TEMP 'emberpvp-installed'
           $Setup=Start-Process "$pwd/source/dist/artifacts/EmberpvpLauncher-Windows11-x64-Setup.exe" -ArgumentList @('/S',"/D=$Destination") -Wait -PassThru
           if ($Setup.ExitCode -ne 0) { throw 'Installer failed' }
           ./source/packaging/windows/smoke.ps1 -Package $Destination -OutputDirectory "$env:RUNNER_TEMP/emberpvp-installed-smoke"

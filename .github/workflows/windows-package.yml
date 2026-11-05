@@ -1,0 +1,85 @@
+name: Package and test Windows installer
+on:
+  push:
+    branches: [windows-package]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: windows-package
+  cancel-in-progress: true
+jobs:
+  package:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct source with packaging corrections
+        run: |
+          $Manifest=Get-Content payload/manifest.json | ConvertFrom-Json
+          $Out=[System.IO.File]::Create("$pwd/corresponding-source.tar.gz")
+          try {
+            foreach ($Part in Get-ChildItem payload/*.b64 | Sort-Object Name) {
+              $Bytes=[Convert]::FromBase64String((Get-Content $Part.FullName -Raw))
+              $Out.Write($Bytes,0,$Bytes.Length)
+            }
+          } finally { $Out.Dispose() }
+          if ((Get-FileHash corresponding-source.tar.gz -Algorithm SHA256).Hash.ToLower() -ne $Manifest.sha256) { throw 'Source hash mismatch' }
+          New-Item source -ItemType Directory | Out-Null
+          tar -xzf corresponding-source.tar.gz -C source
+          if ($LASTEXITCODE -ne 0) { throw 'Source extraction failed' }
+          Copy-Item windows-overrides/* source -Recurse -Force
+          tar -czf corresponding-source.tar.gz -C source .
+          if ($LASTEXITCODE -ne 0) { throw 'Source packaging failed' }
+      - uses: actions/download-artifact@v4
+        with:
+          name: Windows-portable-staging
+          run-id: 42071224199
+          github-token: ${{ github.token }}
+          path: recovered
+      - name: Restore tested launcher binaries
+        run: |
+          $Package=New-Item "$pwd/source/dist/windows11-x64" -ItemType Directory -Force
+          Copy-Item recovered/source/dist/windows11-x64/* $Package -Recurse -Force
+          if (-not (Test-Path "$Package/emberpvp-launcher.exe")) { throw 'Tested launcher binary is missing' }
+      - name: Verify portable GUI without a Qt developer installation
+        run: ./source/packaging/windows/smoke.ps1 -Package "$pwd/source/dist/windows11-x64"
+      - name: Build corrected installer and portable ZIP
+        run: ./source/packaging/windows/package.ps1 -SourceArchive "$pwd/corresponding-source.tar.gz"
+      - name: Test custom per-user install and uninstall
+        run: |
+          $Destination=Join-Path $env:RUNNER_TEMP 'emberpvp-installed'
+          $Setup=Start-Process "$pwd/source/dist/artifacts/EmberpvpLauncher-Windows11-x64-Setup.exe" -ArgumentList @('/S',"/D=$Destination") -Wait -PassThru
+          Write-Host "Installer exit code: $($Setup.ExitCode). Target: $Destination"
+          if ($Setup.ExitCode -ne 0) { throw 'Installer failed' }
+          if (-not (Test-Path "$Destination/emberpvp-launcher.exe")) {
+            Get-ChildItem $Destination -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
+            Get-ChildItem "$env:LOCALAPPDATA/Programs/EmberpvpLauncher" -ErrorAction SilentlyContinue | Select-Object FullName
+            throw 'Installer did not populate the requested directory'
+          }
+          ./source/packaging/windows/smoke.ps1 -Package $Destination -OutputDirectory "$env:RUNNER_TEMP/emberpvp-installed-smoke"
+          $Registered=(Get-ItemProperty 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Uninstall/EmberpvpLauncher').UninstallString
+          if ($Registered -ne ('"'+$Destination+'\Uninstall.exe"')) { throw "Unexpected uninstall registration: $Registered" }
+          'Preserve user files' | Set-Content "$Destination/user-file.txt"
+          $Uninstall=Start-Process "$Destination/Uninstall.exe" -ArgumentList @('/S',"_?=$Destination") -Wait -PassThru
+          if ($Uninstall.ExitCode -ne 0 -or -not (Test-Path "$Destination/user-file.txt")) { throw 'Uninstaller failed to preserve user files' }
+          if (Test-Path "$Destination/emberpvp-launcher.exe") { throw 'Uninstaller left the packaged executable behind' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: EmberpvpLauncher-Windows11-x64
+          path: source/dist/artifacts/*
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Windows-package-diagnostics
+          path: |
+            ${{ runner.temp }}/emberpvp-smoke/**
+            ${{ runner.temp }}/emberpvp-installed-smoke/**
+          if-no-files-found: ignore
