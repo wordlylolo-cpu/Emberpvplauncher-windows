@@ -59,7 +59,7 @@ target_compile_definitions(LauncherTests PRIVATE QT_FORCE_ASSERTS)
 
 foreach(test ${TEST_NAMES})
     string(REPLACE "_test" "" display_name ${test})
-    add_test(NAME ${display_name} COMMAND LauncherTests ${test})
+    add_test(NAME ${display_name} COMMAND LauncherTests ${test} -o -,txt)
 endforeach()
 
 add_executable(FabricVerificationDialogTest
@@ -68,7 +68,7 @@ add_executable(FabricVerificationDialogTest
 target_link_libraries(FabricVerificationDialogTest PRIVATE Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::Widgets)
 target_include_directories(FabricVerificationDialogTest PRIVATE ../launcher)
 ecm_mark_as_test(FabricVerificationDialogTest)
-add_test(NAME FabricVerificationDialog COMMAND FabricVerificationDialogTest)
+add_test(NAME FabricVerificationDialog COMMAND FabricVerificationDialogTest -o -,txt)
 set_tests_properties(FabricVerificationDialog PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 # Run explicitly inside a desktop session: QT_QPA_PLATFORM=wayland ./SkinRendererTest
@@ -97,5 +97,5 @@ if(WIN32)
     add_executable(WindowsFeaturesTest WindowsFeatures_test.cpp ../launcher/platform/windows/EmberWindowsFeatures.cpp)
     target_include_directories(WindowsFeaturesTest PRIVATE ../launcher)
     target_link_libraries(WindowsFeaturesTest PRIVATE Qt6::Core Qt6::Test psapi ole32 uuid user32 shell32)
-    add_test(NAME WindowsFeatures COMMAND WindowsFeaturesTest)
+    add_test(NAME WindowsFeatures COMMAND WindowsFeaturesTest -o -,txt)
 endif()

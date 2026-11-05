@@ -108,6 +108,14 @@ jobs:
             ${{ runner.temp }}/emberpvp-smoke/**
             ${{ runner.temp }}/emberpvp-installed-smoke/**
           if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: failure() && hashFiles('source/dist/windows11-x64/emberpvp-launcher.exe') != ''
+        with:
+          name: Windows-portable-staging
+          path: |
+            source/dist/windows11-x64/**
+            corresponding-source.tar.gz
+          retention-days: 7
       - uses: actions/cache/save@v4
         if: always() && steps.depscache.outputs.cache-hit != 'true'
         with:
