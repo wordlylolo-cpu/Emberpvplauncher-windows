@@ -1,0 +1,89 @@
+name: Windows 11 x64 launcher
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct matching source
+        run: |
+          $Manifest=Get-Content payload/manifest.json | ConvertFrom-Json
+          $Out=[System.IO.File]::Create("$pwd/corresponding-source.tar.gz")
+          try {
+            foreach ($Part in Get-ChildItem payload/*.b64 | Sort-Object Name) {
+              $Bytes=[Convert]::FromBase64String((Get-Content $Part.FullName -Raw))
+              $Out.Write($Bytes,0,$Bytes.Length)
+            }
+          } finally { $Out.Dispose() }
+          if ((Get-FileHash corresponding-source.tar.gz -Algorithm SHA256).Hash.ToLower() -ne $Manifest.sha256) { throw 'Source hash mismatch' }
+          New-Item source -ItemType Directory | Out-Null
+          tar -xzf corresponding-source.tar.gz -C source
+          if ($LASTEXITCODE -ne 0) { throw 'Source extraction failed' }
+      - uses: actions/checkout@v4
+        with:
+          repository: microsoft/vcpkg
+          ref: 908da3a305a0a8028d9602ab241b433652b3df69
+          path: source/cmake/vcpkg
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.2'
+          arch: win64_msvc2022_64
+          modules: 'qtimageformats qtnetworkauth'
+          cache: true
+      - name: Prepare installer compiler
+        run: |
+          if (-not (Test-Path 'C:/Program Files (x86)/NSIS/makensis.exe')) {
+            choco install nsis --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'NSIS install failed' }
+          }
+      - name: Build and test
+        run: ./source/packaging/windows/build.ps1
+      - name: Native GUI smoke check
+        run: ./source/packaging/windows/smoke.ps1 -Package "$pwd/source/dist/windows11-x64"
+      - name: Build installer and portable package
+        run: ./source/packaging/windows/package.ps1 -SourceArchive "$pwd/corresponding-source.tar.gz"
+      - name: Test per-user installer
+        run: |
+          $Destination="$env:RUNNER_TEMP/emberpvp-installed"
+          $Setup=Start-Process "$pwd/source/dist/artifacts/EmberpvpLauncher-Windows11-x64-Setup.exe" -ArgumentList @('/S',"/D=$Destination") -Wait -PassThru
+          if ($Setup.ExitCode -ne 0) { throw 'Installer failed' }
+          ./source/packaging/windows/smoke.ps1 -Package $Destination -OutputDirectory "$env:RUNNER_TEMP/emberpvp-installed-smoke"
+          'Preserve user files' | Set-Content "$Destination/user-file.txt"
+          $Uninstall=Start-Process "$Destination/Uninstall.exe" -ArgumentList @('/S',"_?=$Destination") -Wait -PassThru
+          if ($Uninstall.ExitCode -ne 0 -or -not (Test-Path "$Destination/user-file.txt")) { throw 'Uninstaller failed to preserve user files' }
+          if (Test-Path "$Destination/emberpvp-launcher.exe") { throw 'Uninstaller left the packaged executable behind' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EmberpvpLauncher-Windows11-x64
+          path: source/dist/artifacts/*
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Windows-build-diagnostics
+          path: |
+            source/build-windows/Testing/Temporary/*
+            source/build-windows/CMakeFiles/CMakeConfigureLog.yaml
+            ${{ runner.temp }}/emberpvp-smoke/**
+            ${{ runner.temp }}/emberpvp-installed-smoke/**
+          if-no-files-found: ignore
