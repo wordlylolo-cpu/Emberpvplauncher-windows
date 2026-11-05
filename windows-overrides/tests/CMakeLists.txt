@@ -94,7 +94,7 @@ discover_tests(
 ]]#
 
 if(WIN32)
-    add_executable(WindowsFeaturesTest WindowsFeatures_test.cpp)
+    add_executable(WindowsFeaturesTest WindowsFeatures_test.cpp ../launcher/platform/windows/EmberWindowsFeatures.cpp)
     target_include_directories(WindowsFeaturesTest PRIVATE ../launcher)
     target_link_libraries(WindowsFeaturesTest PRIVATE Qt6::Core Qt6::Test psapi ole32 uuid user32 shell32)
     add_test(NAME WindowsFeatures COMMAND WindowsFeaturesTest)

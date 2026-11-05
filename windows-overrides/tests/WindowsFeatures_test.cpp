@@ -2,6 +2,10 @@
 #include <QTest>
 #include <QTemporaryDir>
 #include "platform/windows/EmberWindowsFeatures.h"
+#include <qt_windows.h>
+#include <shobjidl.h>
+#include <shlguid.h>
+#include <objbase.h>
 #include <shellapi.h>
 using namespace Emberpvp::WindowsFeatures;
 class WindowsFeaturesTest final : public QObject {
