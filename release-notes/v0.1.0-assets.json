@@ -1,0 +1,18 @@
+{
+  "EmberpvpLauncher-Windows11-x64-Setup.exe": {
+    "sha256": "b2db6fa75bbebe2f2c27e48fea62398eb6bef1b56fff73b49767cb7101dd87b8",
+    "bytes": 28984051
+  },
+  "EmberpvpLauncher-Windows11-x64.zip": {
+    "sha256": "1de1527cfd4e18d6b697d2cf0b33cee2e0dee30ef49a5ef179fa233500e6685d",
+    "bytes": 37367574
+  },
+  "EmberpvpLauncher-corresponding-source.tar.gz": {
+    "sha256": "8e14d53ac00ea18372fb2ddca47b983144365ee32101ea1c24cdb3e6117c637b",
+    "bytes": 6150937
+  },
+  "SHA256SUMS.txt": {
+    "sha256": "b5bfaeb583a3130264e721fa4c31221930050f2c344909ff93a9869d8e8237fe",
+    "bytes": 322
+  }
+}

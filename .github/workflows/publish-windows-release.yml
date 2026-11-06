@@ -1,0 +1,94 @@
+name: Publish verified Windows release
+on:
+  push:
+    branches: [publish-windows-release]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: publish-windows-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: v0.1.0
+      RELEASE_TARGET: 42f3d0cd5407aece4e0d280356f871eb3b7402ab
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify build and packaging evidence
+        run: |
+          $RunJson=gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/42074130281"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read packaging evidence' }
+          $Run=$RunJson | ConvertFrom-Json
+          if ($Run.conclusion -ne 'success' -or $Run.head_sha -ne '7a75f3aa7ba90a4dfc06932a10fa5045e6eff033') { throw 'The expected tested package is unavailable' }
+          $JobsJson=gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/42071224199/jobs"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read compiler evidence' }
+          $Jobs=$JobsJson | ConvertFrom-Json
+          $Steps=@($Jobs.jobs | ForEach-Object { $_.steps })
+          foreach ($Name in @('Build and test','Test 3D skin renderer','Native GUI smoke check')) {
+            if (-not @($Steps | Where-Object { $_.name -eq $Name -and $_.conclusion -eq 'success' }).Count) { throw "Missing successful check: $Name" }
+          }
+      - uses: actions/download-artifact@v4
+        with:
+          name: EmberpvpLauncher-Windows11-x64
+          run-id: 42074130281
+          github-token: ${{ github.token }}
+          path: release-files
+      - name: Verify exact release files
+        run: |
+          $Manifest=Get-Content release-notes/v0.1.0-assets.json -Raw | ConvertFrom-Json -AsHashtable
+          $Files=@(Get-ChildItem release-files -File)
+          if ($Files.Count -ne $Manifest.Count) { throw 'Unexpected release file count' }
+          foreach ($Name in $Manifest.Keys) {
+            $File=Get-Item (Join-Path release-files $Name)
+            $Hash=(Get-FileHash $File.FullName -Algorithm SHA256).Hash.ToLower()
+            if ($Hash -ne $Manifest[$Name].sha256 -or $File.Length -ne $Manifest[$Name].bytes) { throw "Release verification failed: $Name" }
+          }
+      - name: Upload verified files and publish
+        run: |
+          $ErrorActionPreference='Stop'
+          $Repo=$env:GITHUB_REPOSITORY
+          $Tag=$env:RELEASE_TAG
+          function Read-Release {
+            $Json=gh api "repos/$Repo/releases?per_page=100"
+            if ($LASTEXITCODE -ne 0) { throw 'Could not list releases' }
+            return @($Json | ConvertFrom-Json | Where-Object { $_.tag_name -eq $Tag }) | Select-Object -First 1
+          }
+          $Release=Read-Release
+          if (-not $Release) {
+            gh release create $Tag --repo $Repo --target $env:RELEASE_TARGET --title 'Emberpvp Launcher 0.1.0 - Windows x64' --notes-file release-notes/v0.1.0.md --draft
+            if ($LASTEXITCODE -ne 0) { throw 'Draft release creation failed' }
+            $Release=Read-Release
+          }
+          if (-not $Release) { throw 'Release is unavailable' }
+          $Manifest=Get-Content release-notes/v0.1.0-assets.json -Raw | ConvertFrom-Json -AsHashtable
+          foreach ($Name in $Manifest.Keys) {
+            $Asset=@($Release.assets | Where-Object { $_.name -eq $Name }) | Select-Object -First 1
+            if (-not $Asset) {
+              if (-not $Release.draft) { throw 'A published release is missing an asset; refusing to change it' }
+              gh release upload $Tag (Join-Path release-files $Name) --repo $Repo
+              if ($LASTEXITCODE -ne 0) { throw "Asset upload failed: $Name" }
+            }
+          }
+          $Release=Read-Release
+          if (@($Release.assets).Count -ne $Manifest.Count) { throw 'Unexpected uploaded asset count' }
+          foreach ($Name in $Manifest.Keys) {
+            $Asset=@($Release.assets | Where-Object { $_.name -eq $Name }) | Select-Object -First 1
+            if (-not $Asset -or $Asset.size -ne $Manifest[$Name].bytes) { throw "Uploaded size mismatch: $Name" }
+            if ($Asset.digest -and $Asset.digest -ne ('sha256:'+$Manifest[$Name].sha256)) { throw "Uploaded digest mismatch: $Name" }
+          }
+          if ($Release.draft) {
+            gh release edit $Tag --repo $Repo --draft=false --latest
+            if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
+          }
+          $Release=Read-Release
+          if ($Release.draft) { throw 'Release is still a draft' }
+          "Published: $($Release.html_url)" | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          $Release.assets | Select-Object name,size,browser_download_url | Format-Table -AutoSize
