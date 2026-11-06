@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: GPL-3.0-only
+pkgname=emberpvp
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Emberpvp Launcher for Minecraft Java 1.21.11 and Fabric only'
+arch=('x86_64')
+url='https://emberpvp.xyz'
+license=('GPL-3.0-only')
+depends=('glibc' 'gcc-libs' 'qt6-base>=6.8' 'qt6-svg' 'qt6-networkauth' 'qt6-imageformats' 'qt6-5compat' 'qt6-wayland' 'cmark' 'libarchive' 'tomlplusplus' 'qrencode' 'zlib' 'kwindowsystem' 'gamemode' 'hicolor-icon-theme')
+makedepends=('cmake' 'ninja' 'extra-cmake-modules' 'jdk17-openjdk' 'scdoc')
+optdepends=('java-runtime>=21: system Java for Minecraft; automatic Java download is also supported' 'xdg-desktop-portal-kde: KDE file dialogs on Wayland')
+options=('!lto' '!debug')
+source=("emberpvp-${pkgver}-source.tar.gz::https://github.com/wordlylolo-cpu/Emberpvplauncher-windows/releases/download/v${pkgver}/EmberpvpLauncher-Linux-corresponding-source.tar.gz")
+sha256sums=('1c9ada786ff068e6433bc526a5363ea61b2b7a5c8164daa9b55097fe81e54a53')
+
+build() {
+  cmake -S "$srcdir" -B "$srcdir/build" -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+    -DBUILD_TESTING=ON -DLauncher_WARNING_AS_ERROR=OFF \
+    -DLauncher_BUILD_PLATFORM=archlinux-x86_64 \
+    -DLauncher_ENABLE_JAVA_DOWNLOADER=ON \
+    -DLauncher_UPDATER_GITHUB_REPO= -DLauncher_BUILD_ARTIFACT= \
+    -DJava_JAVAC_EXECUTABLE=/usr/lib/jvm/java-17-openjdk/bin/javac \
+    -DJava_JAVA_EXECUTABLE=/usr/lib/jvm/java-17-openjdk/bin/java \
+    -DJava_JAR_EXECUTABLE=/usr/lib/jvm/java-17-openjdk/bin/jar
+  cmake --build "$srcdir/build" --parallel 2
+}
+check() {
+  QT_QPA_PLATFORM=offscreen ctest --test-dir "$srcdir/build" --output-on-failure --timeout 180
+}
+package() {
+  DESTDIR="$pkgdir" cmake --install "$srcdir/build"
+  install -Dm644 "$srcdir/LICENSE" "$pkgdir/usr/share/licenses/emberpvp/LICENSE"
+  install -Dm644 "$srcdir/COPYING.md" "$pkgdir/usr/share/licenses/emberpvp/COPYING.md"
+  ln -s emberpvp-launcher "$pkgdir/usr/bin/emberpvp"
+}

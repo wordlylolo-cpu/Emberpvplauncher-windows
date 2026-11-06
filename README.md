@@ -42,3 +42,12 @@ The v0.1.0 release also provides `EmberpvpLauncher-Linux-x86_64.flatpak`, matchi
 This is a direct release bundle, not a Flathub application listing. The KDE runtime is downloaded separately. The launcher remains Minecraft Java 1.21.11 + Fabric only. See `linux-packaging/LINUX-BUILD.md` for build steps and permissions. Normal launching needs no root access.
 
 Verified Linux run: https://github.com/wordlylolo-cpu/Emberpvplauncher-windows/actions/runs/42205539970 (33 unit/policy suites, 3D renderer, appearance UI, and installed native Wayland window). Physical KDE/NVIDIA systems, Microsoft sign-in, and Minecraft gameplay still need interactive verification. The original installed Linux launcher was not changed.
+
+
+## Native Arch Linux package and signed repository
+
+Arch Linux x86_64 installation: https://emberpvp.xyz/download/arch/
+
+The independent Emberpvp community repository provides `emberpvp` for pacman after one-time repository configuration. This is separate from Arch's official repositories and the AUR. Packages and database signatures are required; the public signing fingerprint is `8D778544D320F057BA94FA770D763F81538EFA62`. The setup script adds the public key and pacman include, while leaving existing launcher installations and user data alone. Normal launcher use needs no root permissions.
+
+See `archlinux/PKGBUILD`, `archlinux/setup-emberpvp.sh`, and `archlinux/REPOSITORY.md`. The tested native build is https://github.com/wordlylolo-cpu/Emberpvplauncher-windows/actions/runs/42224029307 (33 suites, 3D renderer, appearance, installed native Wayland window). A separate startup check also passed on the owner's Arch Wayland PC with isolated application data. Microsoft sign-in and actual game sessions remain interactive checks. The package uses the published Linux corresponding source, with GPL notices retained.
