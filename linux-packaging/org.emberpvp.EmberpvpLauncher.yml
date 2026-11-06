@@ -1,0 +1,56 @@
+id: org.emberpvp.EmberpvpLauncher
+branch: stable
+runtime: org.kde.Platform
+runtime-version: '6.10'
+sdk: org.kde.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.openjdk17
+command: emberpvp-launcher
+separate-locales: false
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --device=all
+  - --share=network
+  - --filesystem=home
+  - --filesystem=/sys/kernel/mm/hugepages:ro
+  - --filesystem=/sys/kernel/mm/transparent_hugepage:ro
+  - --talk-name=org.freedesktop.ScreenSaver
+modules:
+  - cmark.yml
+  - tomlplusplus.yml
+  - libdecor.json
+  - flite.json
+  - name: emberpvp
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DBUILD_TESTING=ON
+      - -DLauncher_WARNING_AS_ERROR=OFF
+      - -DLauncher_BUILD_PLATFORM=linux-flatpak-x86_64
+      - -DLauncher_ENABLE_JAVA_DOWNLOADER=ON
+      - -DLauncher_UPDATER_GITHUB_REPO=
+      - -DLauncher_BUILD_ARTIFACT=
+      - -DJava_JAVAC_EXECUTABLE=/usr/lib/sdk/openjdk17/jvm/openjdk-17/bin/javac
+      - -DJava_JAVA_EXECUTABLE=/usr/lib/sdk/openjdk17/jvm/openjdk-17/bin/java
+      - -DJava_JAR_EXECUTABLE=/usr/lib/sdk/openjdk17/jvm/openjdk-17/bin/jar
+    build-options:
+      env:
+        JAVA_HOME: /usr/lib/sdk/openjdk17/jvm/openjdk-17
+        QT_QPA_PLATFORM: offscreen
+        CTEST_OUTPUT_ON_FAILURE: '1'
+        CTEST_TEST_TIMEOUT: '180'
+    run-tests: true
+    post-install:
+      - install -Dm755 SkinRendererTest /app/libexec/emberpvp-ci/SkinRendererTest
+      - install -Dm755 AppearanceUiTest /app/libexec/emberpvp-ci/AppearanceUiTest
+      - install -Dm644 ../LICENSE /app/share/licenses/org.emberpvp.EmberpvpLauncher/LICENSE
+      - install -Dm644 ../COPYING.md /app/share/licenses/org.emberpvp.EmberpvpLauncher/COPYING.md
+    cleanup:
+      - /libexec/emberpvp-ci
+    sources:
+      - type: dir
+        path: ../..

@@ -1,0 +1,22 @@
+{
+  "name": "libdecor",
+  "buildsystem": "meson",
+  "config-opts": [
+    "-Ddemo=false"
+  ],
+  "sources": [
+    {
+      "type": "git",
+      "url": "https://gitlab.freedesktop.org/libdecor/libdecor.git",
+      "commit": "c2bd8ad6fa42c0cb17553ce77ad8a87d1f543b1f"
+    }
+  ],
+  "cleanup": [
+    "/include",
+    "/lib/pkgconfig"
+  ],
+  "post-install": [
+    "install -d /app/share/licenses/libdecor",
+    "find . .. -maxdepth 1 -type f \\( -iname COPYING -o -iname LICENSE -o -iname LICENSE.md -o -iname LICENSE.txt \\) -exec cp -t /app/share/licenses/libdecor {} +"
+  ]
+}

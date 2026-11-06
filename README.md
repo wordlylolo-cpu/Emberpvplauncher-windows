@@ -31,3 +31,14 @@ Extract the source archive and read `packaging/windows/WINDOWS-BUILD.md` for Win
 ## Release publishing
 
 `.github/workflows/publish-windows-release.yml` publishes the pinned, tested v0.1.0 package. It verifies build evidence and exact file hashes, uploads matching source alongside the binaries, and publishes the release after validating all four uploaded files. The manifest is in `release-notes/v0.1.0-assets.json`. Publishing does not change or rebuild the launcher.
+
+
+## Linux x86_64 release
+
+Linux installation commands: https://emberpvp.xyz/download/linux/
+
+The v0.1.0 release also provides `EmberpvpLauncher-Linux-x86_64.flatpak`, matching Linux source, build notes, and `Linux-SHA256SUMS.txt`. Install Flatpak using your distribution's package manager, add the Flathub remote for your user, and install the downloaded bundle with `flatpak install --user ./EmberpvpLauncher-Linux-x86_64.flatpak`. Run `flatpak run org.emberpvp.EmberpvpLauncher`.
+
+This is a direct release bundle, not a Flathub application listing. The KDE runtime is downloaded separately. The launcher remains Minecraft Java 1.21.11 + Fabric only. See `linux-packaging/LINUX-BUILD.md` for build steps and permissions. Normal launching needs no root access.
+
+Verified Linux run: https://github.com/wordlylolo-cpu/Emberpvplauncher-windows/actions/runs/42205539970 (33 unit/policy suites, 3D renderer, appearance UI, and installed native Wayland window). Physical KDE/NVIDIA systems, Microsoft sign-in, and Minecraft gameplay still need interactive verification. The original installed Linux launcher was not changed.

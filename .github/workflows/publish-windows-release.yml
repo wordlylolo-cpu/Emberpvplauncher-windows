@@ -70,7 +70,7 @@ jobs:
             }
           }
           $Release=Invoke-RestMethod -Uri $ReleaseUri -Headers $Headers
-          if (@($Release.assets).Count -ne $Manifest.Count) { throw 'Unexpected uploaded asset count' }
+          if (@($Release.assets | Where-Object { $Manifest.ContainsKey($_.name) }).Count -ne $Manifest.Count) { throw 'Unexpected Windows asset count' }
           foreach ($Name in $Manifest.Keys) {
             $Asset=@($Release.assets | Where-Object { $_.name -eq $Name }) | Select-Object -First 1
             if (-not $Asset -or $Asset.size -ne $Manifest[$Name].bytes) { throw "Uploaded size mismatch: $Name" }
