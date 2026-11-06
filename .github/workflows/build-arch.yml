@@ -1,0 +1,67 @@
+name: Build native Arch Linux package
+on:
+  push:
+    branches: [arch-native-release]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: arch-native-release
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    timeout-minutes: 65
+    steps:
+      - name: Install native Arch toolchain
+        run: |
+          pacman -Syu --noconfirm --needed git cmake ninja extra-cmake-modules qt6-base qt6-svg qt6-networkauth qt6-imageformats qt6-5compat qt6-wayland cmark libarchive tomlplusplus qrencode zlib jdk17-openjdk kwindowsystem gamemode scdoc weston mesa hicolor-icon-theme dbus
+      - uses: actions/checkout@v4
+      - name: Build package and run compatibility tests
+        run: |
+          useradd -m -U emberbuild
+          chown -R emberbuild:emberbuild archlinux
+          runuser -u emberbuild -- bash -c 'cd "$GITHUB_WORKSPACE/archlinux"; makepkg --noconfirm --cleanbuild'
+          pacman -U --noconfirm archlinux/emberpvp-0.1.0-1-x86_64.pkg.tar.zst
+          pacman -Qi emberpvp
+      - name: Verify renderer, appearance, and installed native Wayland window
+        run: runuser -u emberbuild -- dbus-run-session -- bash archlinux/native-test.sh
+      - name: Prepare release files
+        run: |
+          mkdir arch-artifacts
+          cp archlinux/emberpvp-0.1.0-1-x86_64.pkg.tar.zst archlinux/PKGBUILD arch-artifacts/
+          cp archlinux/src/build/Testing/Temporary/LastTest.log arch-artifacts/Arch-TESTS.txt
+          cd arch-artifacts
+          sha256sum emberpvp-0.1.0-1-x86_64.pkg.tar.zst PKGBUILD > Arch-SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Emberpvp-Arch-x86_64
+          path: arch-artifacts/*
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Arch-diagnostics
+          path: |
+            archlinux/startup.log
+            archlinux/src/build/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Emberpvp-Arch-x86_64
+          path: arch-artifacts
+      - name: Publish verified native package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd arch-artifacts
+          sha256sum --check Arch-SHA256SUMS.txt
+          gh release upload v0.1.0 --repo "$GITHUB_REPOSITORY" emberpvp-0.1.0-1-x86_64.pkg.tar.zst PKGBUILD Arch-TESTS.txt Arch-SHA256SUMS.txt
