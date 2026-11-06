@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-export XDG_RUNTIME_DIR="${RUNNER_TEMP}/emberpvp-wayland"
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+if ! mkdir -p "$XDG_RUNTIME_DIR" 2>/dev/null; then
+  sudo install -d -m 700 -o "$(id -u)" -g "$(id -g)" "$XDG_RUNTIME_DIR"
+fi
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 export WAYLAND_DISPLAY=wayland-emberpvp
@@ -16,11 +19,12 @@ done
 test -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY"
 manifest=source/packaging/linux/org.emberpvp.EmberpvpLauncher.yml
 if [[ "${1:-tests}" == tests ]]; then
-  timeout 90 flatpak-builder --run build-flatpak "$manifest" env QT_QPA_PLATFORM=wayland LIBGL_ALWAYS_SOFTWARE=1 /app/libexec/emberpvp-ci/SkinRendererTest -o -,txt
-  timeout 90 flatpak-builder --run build-flatpak "$manifest" env QT_QPA_PLATFORM=wayland LIBGL_ALWAYS_SOFTWARE=1 /app/libexec/emberpvp-ci/AppearanceUiTest -o -,txt
+  flatpak-builder --run build-flatpak "$manifest" sh -c 'echo "Sandbox display: $WAYLAND_DISPLAY; runtime: $XDG_RUNTIME_DIR"; ls -la "$XDG_RUNTIME_DIR"'
+  timeout 90 flatpak-builder --run build-flatpak "$manifest" env QT_QPA_PLATFORM=wayland WAYLAND_DISPLAY="$WAYLAND_DISPLAY" LIBGL_ALWAYS_SOFTWARE=1 /app/libexec/emberpvp-ci/SkinRendererTest -o -,txt
+  timeout 90 flatpak-builder --run build-flatpak "$manifest" env QT_QPA_PLATFORM=wayland WAYLAND_DISPLAY="$WAYLAND_DISPLAY" LIBGL_ALWAYS_SOFTWARE=1 /app/libexec/emberpvp-ci/AppearanceUiTest -o -,txt
 else
   log="${RUNNER_TEMP}/emberpvp-flatpak-startup.log"
-  flatpak run --user --env=QT_QPA_PLATFORM=wayland --env=WAYLAND_DEBUG=client --env=LIBGL_ALWAYS_SOFTWARE=1 org.emberpvp.EmberpvpLauncher --dir /tmp/emberpvp-ci-isolated --show-window >"$log" 2>&1 &
+  flatpak run --user --env=QT_QPA_PLATFORM=wayland --env=WAYLAND_DISPLAY="$WAYLAND_DISPLAY" --env=WAYLAND_DEBUG=client --env=LIBGL_ALWAYS_SOFTWARE=1 org.emberpvp.EmberpvpLauncher --dir /tmp/emberpvp-ci-isolated --show-window >"$log" 2>&1 &
   launcher_pid=$!
   trap 'kill "$launcher_pid" "$compositor_pid" 2>/dev/null || true' EXIT
   sleep 8

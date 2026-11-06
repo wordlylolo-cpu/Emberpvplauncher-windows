@@ -20,6 +20,9 @@
       "type": "patch",
       "path": "patches/0001-Ez-peazy.flite.patch"
     }
+  ],
+  "post-install": [
+    "install -d /app/share/licenses/flite",
+    "find . .. -maxdepth 1 -type f \\( -iname COPYING -o -iname LICENSE -o -iname LICENSE.md -o -iname LICENSE.txt \\) -exec cp -t /app/share/licenses/flite {} +"
   ]
 }
-
